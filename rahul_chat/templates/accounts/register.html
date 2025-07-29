@@ -1,0 +1,42 @@
+{% extends "base.html" %} {% block content %}
+<div class="container my-4">
+    <h1 style="text-align: start; border-bottom: 2px solid cyan; display: inline">Register</h1>
+    {% comment %} <hr class="my-4"> {% endcomment %}
+  <form method="POST">
+    {% csrf_token %} 
+    <div class="mb-3 mt-4">
+      <label for="exampleInputEmail1" class="form-label">Username</label>
+      <input
+        type="text"
+        class="form-control"
+        name="username"
+        required
+      />
+    </div>
+    <div class="mb-3">
+      <label for="exampleInputEmail1" class="form-label">Email address</label>
+      <input
+        type="email"
+        class="form-control"
+        name="email"
+        required
+      />
+      <div id="emailHelp" class="form-text">
+        We'll never share your email with anyone else.
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="exampleInputPassword1" class="form-label">Password</label>
+      <input
+        type="password"
+        class="form-control"
+        name="password"
+        required
+      />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Sign Up</button>
+  </form>
+  <p class="my-4">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+</div>
+{% endblock content %}

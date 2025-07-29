@@ -1,0 +1,18 @@
+{% extends "base.html" %} {% block content %}
+<div class="container my-4 d-flex flex-wrap">
+  {% for user in users %} {% if not user == request.user %}
+  <div class="card mx-1" style="width: 18rem; display: grid; grid-column: 1fr">
+    <div class="card-body">
+      <h5 class="card-title">{{user.username}}</h5>
+      <p class="card-text">{{user.email}}</p>
+      <a
+        href="{% url 'chatRoom' user.username %}"
+        class="btn btn-primary my-2"
+        style="min-width: 200px; margin-left: 20px"
+        >Chat</a
+      >
+    </div>
+  </div>
+  {% endif %} {% endfor %}
+</div>
+{% endblock content %}

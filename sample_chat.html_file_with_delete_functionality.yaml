@@ -1,0 +1,308 @@
+🔴# This is Chat.html file with Improved UI And delete functionality wala, but delete functionality is not working so i have written here. Baad me sahi krna h delete single message, delete selected messages, clear chat or bol skte ho delete all chat wala feature dalna h baad me fix krna h delete issues baad me.
+
+
+{% extends "base.html" %}
+{% block content %}
+
+<div class="chat-container my-4">
+  <h3 class="text-center mb-3" style="color: #333;">
+    Chat with {{ receiver.username }}
+  </h3>
+
+  <!-- Message Display Area -->
+  <div id="chatbox" class="chat-messages"></div>
+
+  <!-- Clear All Button (visible if messages exist) -->
+  <button id="clearChatBtn" class="btn btn-danger mt-2 w-100">Clear Chat</button>
+
+  <!-- Message Send Form -->
+  <form id="messageForm" method="POST" action="{% url 'chatRoom' receiver.username %}" class="message-form">
+    {% csrf_token %}
+    <div class="input-group mt-3">
+      <input
+        id="messageInput"
+        type="text"
+        name="message"
+        class="form-control"
+        placeholder="Type a message"
+        autocomplete="off"
+        required
+      />
+      <button class="btn btn-success" type="submit">Send</button>
+    </div>
+  </form>
+</div>
+
+<style>
+  .chat-container {
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: 10px;
+    background-color: #e5ddd5;
+    padding: 15px;
+    border: 1px solid #ccc;
+  }
+
+  .chat-messages {
+    height: 400px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #ffffff;
+    border-radius: 8px;
+  }
+
+  .message {
+    display: flex;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+
+  .sent {
+    justify-content: flex-end;
+  }
+
+  .received {
+    justify-content: flex-start;
+  }
+
+  .bubble {
+    max-width: 75%;
+    padding: 10px;
+    border-radius: 12px;
+    background-color: #dcf8c6;
+    color: #000;
+    position: relative;
+  }
+
+  .received .bubble {
+    background-color: #fff;
+    border: 1px solid #ccc;
+  }
+
+  .content {
+    margin: 0;
+    word-wrap: break-word;
+  }
+
+  .meta {
+    font-size: 0.75rem;
+    color: #777;
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    margin-top: 5px;
+  }
+
+  .tick {
+    color: #999;
+  }
+
+  .tick.read {
+    color: #4fc3f7;
+  }
+
+  .message-form {
+    background-color: #e5ddd5;
+    padding-top: 10px;
+  }
+
+  .message:hover .delete-btn {
+    display: inline;
+  }
+
+  .delete-btn {
+    display: none;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: red;
+    color: white;
+    border-radius: 50%;
+    font-size: 12px;
+    width: 20px;
+    height: 20px;
+    text-align: center;
+    line-height: 20px;
+    cursor: pointer;
+  }
+
+  .selected {
+    outline: 2px solid red;
+  }
+
+  #topBar {
+    display: none;
+    background: #d9534f;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    cursor: pointer;
+  }
+
+  #clearChatBtn {
+    display: none;
+  }
+</style>
+
+<div id="topBar" onclick="deleteSelected()">Delete Selected</div>
+
+<script>
+  const chatbox = document.getElementById("chatbox");
+  let selectedMessages = new Set();
+  let isUserScrolling = false;
+  let isFirstLoad = true;
+
+  chatbox.addEventListener("scroll", () => {
+    isUserScrolling = chatbox.scrollTop + chatbox.clientHeight < chatbox.scrollHeight - 50;
+  });
+
+  function renderMessages(messages) {
+    chatbox.innerHTML = '';
+    messages.forEach(msg => {
+      const msgDiv = document.createElement('div');
+      msgDiv.classList.add('message');
+      msgDiv.classList.add(msg.sender === '{{ request.user.username }}' ? 'sent' : 'received');
+      msgDiv.dataset.id = msg.id;
+
+      const bubble = document.createElement('div');
+      bubble.classList.add('bubble');
+
+      const content = document.createElement('p');
+      content.classList.add('content');
+      content.textContent = msg.content;
+
+      const meta = document.createElement('div');
+      meta.classList.add('meta');
+
+      const time = document.createElement('span');
+      time.classList.add('time');
+      time.textContent = msg.timestamp;
+
+      meta.appendChild(time);
+
+      if (msg.sender === '{{ request.user.username }}') {
+        const tick = document.createElement('span');
+        tick.classList.add('tick');
+        if (msg.is_read) tick.classList.add('read');
+        tick.innerHTML = '✓' + (msg.is_read ? '✓' : '');
+        meta.appendChild(tick);
+
+        const deleteBtn = document.createElement('div');
+        deleteBtn.classList.add('delete-btn');
+        deleteBtn.innerHTML = '×';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          deleteMessage(msg.id);
+        };
+        bubble.appendChild(deleteBtn);
+      }
+
+      bubble.appendChild(content);
+      bubble.appendChild(meta);
+      msgDiv.appendChild(bubble);
+
+      // Long press (mobile)
+      let pressTimer;
+      msgDiv.addEventListener("touchstart", () => {
+        pressTimer = setTimeout(() => toggleSelect(msg.id, msgDiv), 500);
+      });
+      msgDiv.addEventListener("touchend", () => clearTimeout(pressTimer));
+
+      // Click (desktop)
+      msgDiv.addEventListener("click", () => toggleSelect(msg.id, msgDiv));
+
+      chatbox.appendChild(msgDiv);
+    });
+
+    document.getElementById('clearChatBtn').style.display = messages.length ? 'block' : 'none';
+
+    if (!isUserScrolling || isFirstLoad) {
+      chatbox.scrollTop = chatbox.scrollHeight;
+      isFirstLoad = false;
+    }
+  }
+
+  function toggleSelect(id, el) {
+    if (selectedMessages.has(id)) {
+      selectedMessages.delete(id);
+      el.classList.remove('selected');
+    } else {
+      selectedMessages.add(id);
+      el.classList.add('selected');
+    }
+
+    document.getElementById('topBar').style.display = selectedMessages.size ? 'block' : 'none';
+  }
+
+  function fetchMessages() {
+    fetch('/chat/get_messages/{{ receiver.username }}')
+      .then(res => res.json())
+      .then(data => renderMessages(data.message))
+      .catch(err => console.error(err));
+  }
+
+  function deleteMessage(id) {
+    fetch('/chat/delete_message/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ id })
+    }).then(fetchMessages);
+  }
+
+  function deleteSelected() {
+    fetch('/chat/delete_selected_messages/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ ids: Array.from(selectedMessages) })
+    }).then(() => {
+      selectedMessages.clear();
+      document.getElementById('topBar').style.display = 'none';
+      fetchMessages();
+    });
+  }
+
+  function clearChat() {
+    fetch('/chat/clear_chat/{{ receiver.username }}', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'Content-Type': 'application/json'
+      }
+    }).then(fetchMessages);
+  }
+
+  document.getElementById('clearChatBtn').onclick = clearChat;
+
+  document.getElementById('messageForm').onsubmit = function (e) {
+    e.preventDefault();
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    if (!message) return;
+
+    fetch('/chat/{{ receiver.username }}/send_message/', {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': '{{ csrf_token }}',
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: `msg=${encodeURIComponent(message)}`
+    }).then(() => {
+      input.value = '';
+      fetchMessages();
+    });
+  };
+
+  window.onload = () => {
+    fetchMessages();
+    setInterval(fetchMessages, 1000);
+  };
+</script>
+
+{% endblock %}
